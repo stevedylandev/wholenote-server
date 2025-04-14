@@ -66,12 +66,29 @@ app.get('/', async (c) => {
         url: `https://wholenote.live/share/${type}/${id}`,
         name: "Wholenote",
         splashImageUrl: "https://wholenote.live/spash.png",
-        splashBackgroundColor: "000000"
+        splashBackgroundColor: "#000000"
       }
     }
   })
 
-  return c.html(`<meta name="fc:frame" content='${data}' />`)
+  return c.html(`
+    <meta name="fc:frame" content='${data}'/>
+    <title>Wholenote</title>
+    <meta name="description" content="Discover music shared on Farcaster">
+
+    <meta property="og:url" content="https://wholenote.live">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Wholenote">
+    <meta property="og:description" content="Discover music shared on Farcaster">
+    <meta property="og:image" content="https://wholenote.live/og.png">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:domain" content="wholenote.live">
+    <meta property="twitter:url" content="https://wholenote.live">
+    <meta name="twitter:title" content="Wholenote">
+    <meta name="twitter:description" content="Discover music shared on Farcaster">
+    <meta name="twitter:image" content="https://wholenote.live/og.png">
+  `)
 })
 
 export default app
