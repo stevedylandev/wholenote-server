@@ -14,26 +14,53 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use(cors())
 
 app.get('/feed', async (c) => {
-  const limit = c.req.query('limit')
-  const request = await fetch(
-    `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_url&embed_url=open.spotify.com&with_recasts=false&limit=${limit || '25'}`,
-    {
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': c.env.NEYNAR_API_KEY,
-        'x-neynar-experimental': 'false'
-      }
-    }
-  );
+  const limit = c.req.query('limit') || '25';
+  const headers = {
+    'accept': 'application/json',
+    'x-api-key': c.env.NEYNAR_API_KEY,
+    'x-neynar-experimental': 'false'
+  };
 
-  if (!request.ok) {
-    return c.json({ error: "Problem fetching feed" }, { status: 500 })
+  // Make two separate requests in parallel
+  const [spotifyResponse, wholenoteResponse] = await Promise.all([
+    fetch(
+      `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_url&embed_url=open.spotify.com&with_recasts=false&limit=${limit}`,
+      { headers }
+    ),
+    fetch(
+      `https://api.neynar.com/v2/farcaster/feed?feed_type=filter&filter_type=embed_url&embed_url=share.wholenote.live&with_recasts=false&limit=${limit}`,
+      { headers }
+    )
+  ]);
+
+  if (!spotifyResponse.ok || !wholenoteResponse.ok) {
+    return c.json({ error: "Problem fetching feed" }, { status: 500 });
   }
 
-  const response = await request.json() as CastResponse
+  // Parse both responses
+  const spotifyData = await spotifyResponse.json() as CastResponse;
+  const wholenoteData = await wholenoteResponse.json() as CastResponse;
 
-  return c.json(response, { status: 200 })
-})
+  // Combine the casts from both responses
+  const allCasts = [...spotifyData.casts, ...wholenoteData.casts];
+
+  // Sort by timestamp (newest first)
+  allCasts.sort((a, b) => {
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+  });
+
+  // Limit to requested number
+  const limitedCasts = allCasts.slice(0, parseInt(limit));
+
+  // Create combined response
+  const combinedResponse = {
+    casts: limitedCasts,
+    // For pagination, you might need a more sophisticated approach
+    next: spotifyData.next || wholenoteData.next
+  };
+
+  return c.json(combinedResponse, { status: 200 });
+});
 
 app.get('/', async (c) => {
   const url = c.req.query('url')
