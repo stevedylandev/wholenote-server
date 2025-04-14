@@ -1,17 +1,17 @@
 import { Hono } from 'hono'
 import { cors } from "hono/cors"
+import { extractSpotifyInfo, getSpotifyToken, getSpotifyImage } from "./spotify"
 
 type Bindings = {
   NEYNAR_API_KEY: string
+  SPOTIFY_CLIENT_ID: string
+  SPOTIFY_CLIENT_SECRET: string
+  SPOTIFY_TOKENS: KVNamespace
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
 
 app.use(cors())
-
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
 
 app.get('/feed', async (c) => {
   const limit = c.req.query('limit')
@@ -33,6 +33,45 @@ app.get('/feed', async (c) => {
   const response = await request.json() as CastResponse
 
   return c.json(response, { status: 200 })
+})
+
+app.get('/', async (c) => {
+  const url = c.req.query('url')
+  if (!url) {
+    return c.json({ error: "Missing URL" }, 400)
+  }
+
+  const { type, id, valid } = extractSpotifyInfo(url)
+
+  if (!valid) {
+    return c.json({ error: "Invalid spotify url" }, 400)
+  }
+
+  // Get token using the cached version if available
+  const token = await getSpotifyToken(
+    c.env.SPOTIFY_CLIENT_ID,
+    c.env.SPOTIFY_CLIENT_SECRET,
+    c.env.SPOTIFY_TOKENS
+  );
+
+  const imageUrl = await getSpotifyImage(type, id, token);
+
+  const data = JSON.stringify({
+    version: "next",
+    imageUrl: imageUrl || "https://spotifyurl.com/image.png", // Fallback image
+    button: {
+      title: "Listen",
+      action: {
+        type: "launch_frame",
+        url: `https://wholenote.live/share/${type}/${id}`,
+        name: "Wholenote",
+        splashImageUrl: "https://wholenote.live/spash.png",
+        splashBackgroundColor: "000000"
+      }
+    }
+  })
+
+  return c.html(`<meta name="fc:frame" content='${data}' />`)
 })
 
 export default app
