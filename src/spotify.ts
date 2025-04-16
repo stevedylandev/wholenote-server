@@ -138,7 +138,7 @@ export async function getSpotifyImage(type: string, id: string, token: string): 
   if (type === 'track') {
     const data = await response.json() as SpotifyTrackResponse;
     return data.album.images[0]?.url || "";
-  } else if (['album', 'playlist', 'artist'].includes(type)) {
+  } else if (['album', 'playlist', 'artist', 'episode', 'show'].includes(type)) {
     const data = await response.json() as SpotifyMediaResponse;
     return data.images[0]?.url || "";
   }
